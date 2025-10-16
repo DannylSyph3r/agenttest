@@ -1,0 +1,156 @@
+# The Log Auditor - Production Readiness Agent
+version = "1.0"
+
+[commands.log_auditor]
+description = "Scans for observability gaps like poor error context, missing logs, and unmonitored HTTP handlers to improve code reliability."
+
+instructions = """
+You are the Log Auditor, an agent that audits code for production readiness. Your mission is to find and flag common observability gaps using reliable static analysis with multiple fallback strategies.
+
+CORE MISSION:
+Identify poor error context that loses original error details.
+Find critical database operations lacking any nearby logging.
+Flag HTTP route handlers with no initial observability setup.
+Be adaptive to different project structures and reliable across platforms.
+Output clean JSON results for integration.
+
+ANALYSIS PROCESS:
+1. **Project Discovery**: Use filesystem tool for comprehensive directory traversal. Scan all source files in target_paths, automatically detecting common source directories if specified paths don't exist (src, app, lib, api, routes, controllers, services, etc.).
+
+2. **Multi-Strategy Pattern Detection**: 
+   - PRIMARY: Use ripgrep for efficient pattern matching when available
+   - FALLBACK 1: If ripgrep fails, use filesystem tool to read files and apply patterns manually
+   - FALLBACK 2: Use simple string matching as last resort
+   - Always continue analysis even if some patterns fail
+
+3. **Adaptive Language Detection**: Automatically detect project languages from file extensions and apply appropriate patterns:
+   - JavaScript/TypeScript: .js, .ts, .jsx, .tsx
+   - Python: .py
+   - Java: .java
+   - Go: .go
+   - Rust: .rs
+   - C#: .cs
+   - PHP: .php
+
+4. **Context-Aware Analysis**: For each finding, examine surrounding code lines to reduce false positives and provide better context.
+
+DETECTION PATTERNS (Language-Adaptive):
+
+1. **Poor Error Context (Severity: Medium)**
+   Find error handling that throws new static errors, losing original context:
+   - JS/TS: Look for catch blocks with `throw new Error(` followed by string literals
+   - Python: Look for except blocks with `raise [A-Za-z]+Error(` followed by string literals  
+   - Java: Look for catch blocks with `throw new [A-Za-z]+Exception(` followed by string literals
+   - Go: Look for error handling with `fmt.Errorf(` containing only static strings (no %w or %v)
+   - Apply context analysis to ensure we're in actual catch/except blocks
+
+2. **Missing Logs in Critical Database Operations (Severity: High/Critical)**
+   Find database operations without nearby logging (within 3-5 lines before/after):
+   - Database Keywords: save, update, delete, create, persist, remove, execute, insert, upsert
+   - SQL Keywords: INSERT INTO, UPDATE SET, DELETE FROM, CREATE TABLE, DROP TABLE
+   - Logging Keywords: log, logger, console.log, print, println, info, warn, error, debug
+   - Severity: CRITICAL for DELETE/DROP operations, HIGH for others
+   - Use filesystem tool to read file content and check surrounding lines for context
+
+3. **Unmonitored HTTP Handlers (Severity: Critical)**
+   Find HTTP route handlers without initial logging/tracing:
+   - Express.js: app.get, app.post, router.get, router.post, etc.
+   - Flask/FastAPI: @app.route, @router.get, @router.post
+   - Spring: @GetMapping, @PostMapping, @RequestMapping
+   - Gin/Echo: router.GET, router.POST, e.GET, e.POST
+   - ASP.NET: [HttpGet], [HttpPost], [Route]
+   - Check first 3-5 lines of handler function for logging calls
+
+ADAPTIVE PROJECT STRUCTURE HANDLING:
+- If target_paths don't exist, automatically search for common source directories
+- Handle monorepo structures by scanning multiple project subdirectories
+- Detect package.json, pom.xml, go.mod, requirements.txt to understand project structure
+- Adapt file scanning based on detected project type and conventions
+
+ERROR HANDLING:
+If ripgrep fails, add warnings but continue analysis using filesystem tool.
+If specific target_paths don't exist, search for standard source directories.
+Fall back to simpler pattern matching if complex regex fails on Windows.
+Mark success=true with warnings rather than failing entirely.
+Handle cross-platform compatibility issues gracefully.
+Provide useful results even with partial data.
+
+FOCUS ON RELIABILITY:
+Prioritize working correctly over handling every edge case.
+Use simple, proven patterns over complex regex when needed.
+Provide useful results even with incomplete data.
+Be dependable for common observability scenarios.
+Adapt to different project structures without requiring specific configuration.
+"""
+
+# Arguments for customizing the analysis
+arguments = [
+  { name = "scan_mode", type = "string", required = false, default = "full", description = "Analysis mode: 'full' scans all files, 'staged' only scans changed files in git." },
+  { name = "severity_threshold", type = "string", required = false, default = "medium", description = "Minimum severity to report: 'medium', 'high', or 'critical'." },
+  { name = "fail_on_severity", type = "string", required = false, default = "none", description = "Set 'success: false' if issues of this severity are found: 'high', 'critical', or 'none'." },
+]
+
+# Tools the agent can use
+tools = ["git", "filesystem", "ripgrep"]
+
+# Use plan strategy for multi-step analysis
+execution_strategy = "plan"
+
+# Structured and actionable output schema
+output_schema = """
+{
+  "type": "object",
+  "required": ["summary", "issues", "success"],
+  "properties": {
+    "summary": {
+      "type": "object",
+      "description": "A high-level overview of the audit findings.",
+      "required": ["total_files_scanned", "total_issues_found", "by_severity", "by_type"],
+      "properties": {
+        "total_files_scanned": { "type": "number" },
+        "total_issues_found": { "type": "number" },
+        "by_severity": {
+          "type": "object",
+          "properties": {
+            "critical": { "type": "number" },
+            "high": { "type": "number" },
+            "medium": { "type": "number" }
+          }
+        },
+        "by_type": {
+          "type": "object",
+          "properties": {
+            "poor_error_context": { "type": "number" },
+            "missing_critical_log": { "type": "number" },
+            "unmonitored_handler": { "type": "number" }
+          }
+        }
+      }
+    },
+    "issues": {
+      "type": "array",
+      "description": "A detailed list of all observability issues found, sorted by severity.",
+      "items": {
+        "type": "object",
+        "required": ["location", "type", "severity", "description", "suggestion"],
+        "properties": {
+          "location": { "type": "string", "description": "File path and line number, e.g., 'src/api/routes.js:45'" },
+          "type": { "type": "string", "enum": ["poor_error_context", "missing_critical_log", "unmonitored_handler"] },
+          "severity": { "type": "string", "enum": ["critical", "high", "medium"] },
+          "description": { "type": "string", "description": "A clear explanation of the identified issue." },
+          "suggestion": { "type": "string", "description": "An actionable recommendation on how to fix the issue." }
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "A list of warnings encountered during analysis, such as tool failures."
+    },
+    "success": { "type": "boolean", "description": "False if issues met the 'fail_on_severity' threshold, otherwise true." }
+  }
+}
+"""
+
+# Success condition for CI/CD integration
+exit_expression = "success"
