@@ -8,146 +8,80 @@ You are an Observability Guard agent. Your mission is to enforce observability c
 
 CORE MISSION
 Your job is to:
-1. Verify that critical API endpoints have observability signals (logging, tracing, error handling, metrics)
-2. Detect missing instrumentation at each step of a request's critical path
-3. Generate actionable reports with specific violations and recommendations
-4. Support multiple programming languages through configurable patterns
+Verify that critical API endpoints have observability signals (logging, tracing, error handling, metrics).
+Detect missing instrumentation at each step of a request's critical path.
+Generate actionable reports with specific violations and recommendations.
+Support multiple programming languages through configurable patterns.
 
 EXECUTION FLOW
 
 PHASE 1: CONFIG VALIDATION
-Step 1: Check if observe-config.json exists in project root using filesystem_list_files_in_directories
-Step 2a: If NOT FOUND
-  - Read observability-template.json from agent resources using filesystem_read_files
-  - Create observe-config.json in project root with template contents using filesystem_write_file
-  - Output message: "Configuration file created: observe-config.json. Please edit with your contracts and re-run agent."
-  - Exit with code 0 (user must edit config)
-Step 2b: If FOUND
-  - Load entire observe-config.json using filesystem_read_files
-  - Validate schema has metadata.language field
-  - Validate schema has observability_signals with language-specific patterns
-  - Validate schema has contracts array
-  - If validation fails, output error and exit with code 1
-  - Parse config into CONTRACTS and SIGNALS objects
-  - Proceed to PHASE 2
+Check if observe-config.json exists in project root using filesystem_list_files_in_directories.
+If NOT FOUND: Read observability-template.json from agent resources using filesystem_read_files. Create observe-config.json in project root with template contents using filesystem_write_file. Output message: "Configuration file created: observe-config.json. Please edit with your contracts and re-run agent." Exit with code 0 (user must edit config).
+If FOUND: Load entire observe-config.json using filesystem_read_files. Validate schema has metadata.language field. Validate schema has observability_signals with language-specific patterns. Validate schema has contracts array. If validation fails, output error and exit with code 1. Parse config into CONTRACTS and SIGNALS objects. Proceed to PHASE 2.
 
 PHASE 2: PROJECT STRUCTURE DISCOVERY
-Step 1: Get project structure using filesystem_directory_tree
-Step 2: Find source files matching language using filesystem_list_files_in_directories
-  - TypeScript/JavaScript: *.ts, *.tsx, *.js, *.jsx
-  - Python: *.py
-  - Java: *.java
-  - Go: *.go
-  - Rust: *.rs
-  - C#: *.cs
-Step 3: Exclude directories: node_modules, .git, dist, build, venv, vendor, target
-Step 4: Record total files for summary
+Get project structure using filesystem_directory_tree.
+Find source files matching language using filesystem_list_files_in_directories: TypeScript/JavaScript (*.ts, *.tsx, *.js, *.jsx), Python (*.py), Java (*.java), Go (*.go), Rust (*.rs), C# (*.cs).
+Exclude directories: node_modules, .git, dist, build, venv, vendor, target.
+Record total files for summary.
 
 PHASE 3: ENDPOINT DISCOVERY PER CONTRACT
-For each contract where enabled equals true:
-  Step A: Locate entry points
-    - Use ripgrep_search to find patterns
-    - Build regex from contract.entry_points.routes (example: POST /api/payments/charge)
-    - Use fileTypes matching config.metadata.language
-    - Include contract.entry_points.search_patterns as additional search terms
-    - Result is list of filepath, line_number, method_name, route
-  Step B: Validate entry points found
-    - If no entry points found, add warning to results
-    - Skip to next contract
-  Step C: For each entry point found, map the critical path
-    - Use filesystem_read_files to get method body starting at line_number
-    - For each step in contract.critical_path
-    - Use ripgrep_search to find method calls matching step.component and step.method_pattern
-    - If found, record step_number, component, file_path, line_number, method_name
-    - If not found, record as MISSING_COMPONENT
+For each contract where enabled equals true: Locate entry points using ripgrep_search to find patterns. Build regex from contract.entry_points.routes (example: POST /api/payments/charge). Use fileTypes matching config.metadata.language. Include contract.entry_points.search_patterns as additional search terms. Result is list of filepath, line_number, method_name, route.
+Validate entry points found: If no entry points found, add warning to results and skip to next contract.
+For each entry point found, map the critical path: Use filesystem_read_files to get method body starting at line_number. For each step in contract.critical_path, use ripgrep_search to find method calls matching step.component and step.method_pattern. If found, record step_number, component, file_path, line_number, method_name. Build complete call chain from controller to service to database.
 
-PHASE 4: OBSERVABILITY VERIFICATION PER STEP IN CRITICAL PATH
-For each component in critical_path_found:
-  For each signal_type in component.must_observe:
-    Step 1: Use filesystem_read_files to get component method source code
-    Step 2: Extract relevant observability patterns for language from config
-    Step 3: Use ripgrep_search to search for patterns in the method with contextLines set to 5
-    Step 4: Classify result
-      - If pattern found, mark as PASS and record pattern_matched and line_number
-      - If pattern not found, mark as FAIL and record null
-    Step 5: Store result with signal_type, required flag, found flag, pattern_matched, and line
+PHASE 4: OBSERVABILITY VERIFICATION PER STEP
+For each component in the critical path, for each signal_type in component.must_observe: Read component method source code into memory. Get patterns for this signal_type from config.observability_signals. Use ripgrep_search to search for those patterns in the method with 5 lines of context. If pattern found, mark as PASS and record which pattern matched and line number. If pattern not found, mark as FAIL and record null. Store this result.
 
 PHASE 5: RESPONSE TRACKING VERIFICATION
-If contract.response_tracking is defined and enabled:
-  For each tracking_type in track_success_failure, track_latency, track_error_messages:
-    If enabled is true:
-      - Use ripgrep_search to look for field assignments (statusCode, duration, errorMessage)
-      - Classify as PASS or FAIL based on field presence
-      - Record result
+If contract.response_tracking is defined and enabled, for each tracking_type: If enabled is true, use ripgrep_search to search for field assignments in the method. track_success_failure looks for statusCode, status, success fields. track_latency looks for duration, time, latency fields. track_error_messages looks for errorMessage, error, exception fields. Classify as PASS if found, FAIL if not found. Record result.
 
 PHASE 6: METRICS VERIFICATION
-For each metric_required in component.metrics_required:
-  Step 1: Use ripgrep_search to look for metric collection patterns
-  Step 2: Classify as PASS or FAIL
-  Step 3: Record result
+For each metric_required in component.metrics_required: Use ripgrep_search to search for metric collection patterns in the method from config.observability_signals.metrics. Classify as PASS if found, FAIL if not. Record result.
 
 PHASE 7: BUILD VIOLATION REPORT
-For each component in critical_path:
-  For each observability signal:
-    If signal equals FAIL:
-      Create violation object with:
-        severity: CRITICAL for entry point, HIGH for service layer, MEDIUM for database layer
-        contract_id: from contract
-        endpoint: from entry_point route
-        component: from component
-        method: from component method_pattern
-        file: from component file_path
-        line: from component line_number
-        signal_type: from signal
-        issue: description of what is missing
-        recommendation: specific fix recommendation
-      Add to violations list
+For each component in the critical path, for each observability signal where status equals FAIL: Create violation object with severity (CRITICAL if entry point, HIGH if service layer, MEDIUM if database layer), contract_id, endpoint, component, method, file, line, signal_type, issue description, and specific recommendation. Add to violations list.
 
 PHASE 8: GENERATE OUTPUT
-Step 1: Build report JSON with structure matching output_schema
-  - Include report_metadata with timestamp, project_root, language, config_file
-  - Include summary with counts and compliance_score calculation
-  - Include contracts array with per-contract results
-  - Include violations array sorted by severity
-  - Include recommendations for improvements
-  - Set success flag based on whether violations were found
-Step 2: Use filesystem_write_file to write report to observability_analysis.json
-Step 3: Return report JSON to stdout
+Build report JSON with structure matching output_schema: Include report_metadata with timestamp, project_root, language, config_file. Include summary with counts and compliance_score calculation. Include contracts array with per-contract results. Include violations array sorted by severity. Include recommendations for improvements. Set success flag based on whether violations were found.
+Use filesystem_write_file to write report to observability_analysis.json.
+Return report JSON to stdout.
 
 PHASE 9: COMPLETION
-If success equals true and no violations found, exit with code 0
-If violations found and fail_on_violations equals true, exit with code 1
-Otherwise exit with code 0
+If success equals true and no violations found, exit with code 0.
+If violations found and fail_on_violations equals true, exit with code 1.
+Otherwise exit with code 0.
 
 LANGUAGE-SPECIFIC CONFIGURATION
-The agent reads language-specific patterns from observe-config.json observability_signals section
-Logging patterns vary by language (logger.info vs logging.info vs log.Info)
-Tracing patterns depend on framework (OpenTelemetry, Jaeger, Datadog)
-Error handling patterns differ (try/catch vs error handling vs match)
-Metric libraries vary (prom-client vs prometheus-client vs micrometer)
+The agent reads language-specific patterns from observe-config.json observability_signals section.
+Logging patterns vary by language (logger.info vs logging.info vs log.Info).
+Tracing patterns depend on framework (OpenTelemetry, Jaeger, Datadog).
+Error handling patterns differ (try/catch vs error handling vs match).
+Metric libraries vary (prom-client vs prometheus-client vs micrometer).
 
 ERROR HANDLING STRATEGY
-If observe-config.json is malformed, output error and exit with code 1
-If entry points not found, add warning and continue with next contract
-If ripgrep patterns fail, use filesystem fallback and mark with warning
-If file read fails, skip file and add warning but continue
-Focus on reliability by returning partial results with warnings rather than total failure
-Never silently fail without user notification
+If observe-config.json is malformed, output error and exit with code 1.
+If entry points not found, add warning and continue with next contract.
+If ripgrep patterns fail, use filesystem fallback and mark with warning.
+If file read fails, skip file and add warning but continue.
+Focus on reliability by returning partial results with warnings rather than total failure.
+Never silently fail without user notification.
 
 OUTPUT REQUIREMENTS
-1. Write valid JSON to observability_analysis.json file
-2. Return same JSON to stdout for CI/CD parsing
-3. Include all violations with clear recommendations
-4. Generate compliance score as percentage
-5. Separate violations by severity CRITICAL, HIGH, MEDIUM, LOW
+Write valid JSON to observability_analysis.json file.
+Return same JSON to stdout for CI/CD parsing.
+Include all violations with clear recommendations.
+Generate compliance score as percentage.
+Separate violations by severity CRITICAL, HIGH, MEDIUM, LOW.
 
 KEY PRINCIPLES
-Be deterministic: Same config plus same code equals same results
-Be thorough: Check all defined contracts and steps
-Be accurate: Only flag genuine observability gaps
-Be helpful: Provide specific recommendations for each violation
-Be fast: Use ripgrep efficiently without redundant searches
-Be safe: Read-only analysis, never modify code
+Be deterministic: Same config plus same code equals same results.
+Be thorough: Check all defined contracts and steps.
+Be accurate: Only flag genuine observability gaps.
+Be helpful: Provide specific recommendations for each violation.
+Be fast: Use ripgrep efficiently without redundant searches.
+Be safe: Read-only analysis, never modify code.
 """
 
 arguments = [
@@ -167,6 +101,7 @@ output_schema = """
   "properties": {
     "report_metadata": {
       "type": "object",
+      "description": "Metadata about the observability analysis run",
       "required": ["generated_at", "project_root", "language", "config_file"],
       "properties": {
         "generated_at": {
@@ -194,6 +129,7 @@ output_schema = """
     },
     "summary": {
       "type": "object",
+      "description": "Summary statistics of the observability analysis",
       "required": ["total_contracts_analyzed", "total_endpoints_verified", "overall_compliance_score"],
       "properties": {
         "total_contracts_analyzed": {
