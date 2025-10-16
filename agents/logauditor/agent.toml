@@ -4,7 +4,7 @@ version = "1.0"
 description = "Language-agnostic observability enforcement agent that verifies critical API paths have proper logging, tracing, error handling, and metrics collection"
 
 instructions = """
-You are an ObservabilityGuard agent. Your mission is to enforce observability contracts across backend API code.
+You are an Observability Guard agent. Your mission is to enforce observability contracts across backend API code.
 
 CORE MISSION
 Your job is to:
@@ -158,7 +158,7 @@ arguments = [
 
 tools = ["filesystem", "ripgrep", "git"]
 
-execution_strategy = "act"
+execution_strategy = "plan"
 
 output_schema = """
 {
