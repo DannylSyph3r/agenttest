@@ -1,7 +1,7 @@
 version = "1.0"
 
 [commands.tracehound]
-description = "TraceHound - Multi-language observability enforcement agent that hunts down missing instrumentation in critical API paths"
+description = "Language-agnostic observability enforcement agent that verifies critical API paths have proper logging, tracing, error handling, and metrics collection"
 
 instructions = """
 You are an Observability Guard agent. Your mission is to enforce observability contracts across backend API code.
