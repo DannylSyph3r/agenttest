@@ -1,248 +1,125 @@
 {
   "metadata": {
     "version": "1.0",
-    "language": "typescript",
-    "description": "Observability contracts for Order Management API - monitors critical order processing, payment, and product retrieval flows",
-    "supported_languages": ["typescript", "javascript", "python", "java", "go", "rust", "csharp"],
-    "instructions": "This configuration defines observability requirements for the e-commerce Order Management API. Each contract ensures proper logging, error handling, and metrics collection across the request lifecycle."
+    "language": "typescript"
   },
-  "observability_signals": {
-    "logging": {
-      "description": "Required logging at this step",
-      "language_specific": {
-        "typescript": {
-          "patterns": [
-            "logger\\.\\w+\\(",
-            "log\\.\\w+\\(",
-            "console\\.log\\(",
-            "console\\.error\\(",
-            "console\\.warn\\("
-          ],
-          "libraries": ["winston", "pino", "bunyan"],
-          "minimum_levels": ["error", "warn"]
-        }
-      }
-    },
-    "tracing": {
-      "description": "Distributed tracing spans",
-      "language_specific": {
-        "typescript": {
-          "patterns": [
-            "tracer\\.startSpan\\(",
-            "span\\.\\w+\\(",
-            "@Trace\\(",
-            "trace\\.\\w+\\("
-          ],
-          "libraries": ["opentelemetry", "jaeger-client", "dd-trace"],
-          "recommended": ["@opentelemetry/api"]
-        }
-      }
-    },
-    "error_handling": {
-      "description": "Try-catch blocks with proper error logging",
-      "language_specific": {
-        "typescript": {
-          "patterns": [
-            "try\\s*{[\\s\\S]*?catch\\s*\\(",
-            "\\.catch\\s*\\(",
-            "throw\\s+new\\s+\\w+Error"
-          ],
-          "best_practices": ["Always log caught errors", "Include context in error logs"]
-        }
-      }
-    },
-    "metrics": {
-      "description": "Metrics collection for monitoring",
-      "language_specific": {
-        "typescript": {
-          "patterns": [
-            "metrics\\.\\w+\\(",
-            "counter\\.inc\\(",
-            "histogram\\.observe\\(",
-            "gauge\\.set\\("
-          ],
-          "libraries": ["prom-client", "statsd-client"],
-          "recommended_metrics": ["request_duration", "request_total", "error_total"]
-        }
-      }
-    }
-  },
+  
   "contracts": [
     {
       "id": "order_creation",
       "name": "Order Creation Flow",
       "enabled": true,
-      "description": "Critical order creation path - must have full observability for payment fraud detection and order tracking",
-      "entry_points": {
-        "routes": [
-          "POST /api/orders"
-        ],
-        "search_patterns": [
-          "router.post.*orders",
-          "createOrder"
-        ]
-      },
-      "critical_path": [
-        {
-          "step": 1,
-          "component": "orders",
-          "method_pattern": "post.*orders",
-          "description": "Orders API Controller - entry point for order creation",
-          "must_observe": [
-            "logging",
-            "error_handling"
-          ],
-          "metrics_required": [
-            "request_latency",
-            "order_creation_total"
-          ]
-        },
-        {
-          "step": 2,
-          "component": "order-service",
-          "method_pattern": "createOrder",
-          "description": "Order Service - business logic for creating orders with validation",
-          "must_observe": [
-            "logging",
-            "error_handling"
-          ],
-          "metrics_required": [
-            "order_creation_duration",
-            "order_value"
-          ]
-        },
-        {
-          "step": 3,
-          "component": "repository|executeTransaction|executeQuery",
-          "method_pattern": "INSERT|query|execute",
-          "description": "Database layer - persisting order and order items",
-          "must_observe": [
-            "logging",
-            "error_handling"
-          ],
-          "metrics_required": [
-            "db_query_duration"
-          ]
-        }
+      "description": "Monitor order creation endpoint for proper observability",
+      "routes": [
+        "POST /api/orders"
       ],
-      "response_tracking": {
-        "track_success_failure": true,
-        "track_latency": true,
-        "track_error_messages": true,
-        "expected_fields": [
-          "status",
-          "id",
-          "error"
-        ]
-      }
+      "code_flow": [
+        {
+          "layer": "controller",
+          "file_pattern": "orders"
+        },
+        {
+          "layer": "service",
+          "file_pattern": "order-service"
+        },
+        {
+          "layer": "database",
+          "file_pattern": "repository"
+        }
+      ]
     },
+    
     {
       "id": "order_fulfillment",
       "name": "Order Fulfillment Flow",
       "enabled": true,
-      "description": "Order fulfillment process - critical for inventory management and customer satisfaction",
-      "entry_points": {
-        "routes": [
-          "POST /api/orders/:id/fulfill"
-        ],
-        "search_patterns": [
-          "fulfill",
-          "router.post.*fulfill"
-        ]
-      },
-      "critical_path": [
-        {
-          "step": 1,
-          "component": "orders",
-          "method_pattern": "post.*fulfill",
-          "description": "Orders API Controller - fulfill endpoint",
-          "must_observe": [
-            "logging",
-            "error_handling"
-          ],
-          "metrics_required": [
-            "fulfillment_request_total"
-          ]
-        },
-        {
-          "step": 2,
-          "component": "order-service",
-          "method_pattern": "fulfillOrder",
-          "description": "Order Service - fulfillment business logic",
-          "must_observe": [
-            "logging",
-            "error_handling"
-          ],
-          "metrics_required": [
-            "fulfillment_duration"
-          ]
-        },
-        {
-          "step": 3,
-          "component": "order-service",
-          "method_pattern": "updateOrderStatus",
-          "description": "Update order status to fulfilled",
-          "must_observe": [
-            "logging"
-          ],
-          "metrics_required": []
-        }
+      "description": "Monitor order fulfillment for inventory and delivery tracking",
+      "routes": [
+        "POST /api/orders/:id/fulfill"
       ],
-      "response_tracking": {
-        "track_success_failure": true,
-        "track_latency": true,
-        "track_error_messages": true
-      }
+      "code_flow": [
+        {
+          "layer": "controller",
+          "file_pattern": "orders"
+        },
+        {
+          "layer": "service",
+          "file_pattern": "order-service"
+        },
+        {
+          "layer": "database",
+          "file_pattern": "repository"
+        }
+      ]
     },
+    
     {
-      "id": "product_retrieval",
-      "name": "Product Retrieval Flow",
+      "id": "user_creation",
+      "name": "User Registration Flow",
       "enabled": true,
-      "description": "Product catalog access - high-frequency endpoint requiring performance monitoring",
-      "entry_points": {
-        "routes": [
-          "GET /api/products/:id",
-          "GET /api/products"
-        ],
-        "search_patterns": [
-          "router.get.*products",
-          "getProduct"
-        ]
-      },
-      "critical_path": [
+      "description": "Monitor user registration with password hashing and validation",
+      "routes": [
+        "POST /api/users"
+      ],
+      "code_flow": [
         {
-          "step": 1,
-          "component": "products",
-          "method_pattern": "get.*products",
-          "description": "Products API Controller",
-          "must_observe": [
-            "logging",
-            "error_handling"
-          ],
-          "metrics_required": [
-            "product_request_total",
-            "cache_hit_rate"
-          ]
+          "layer": "controller",
+          "file_pattern": "users"
         },
         {
-          "step": 2,
-          "component": "repository|executeQuery",
-          "method_pattern": "SELECT|query|find",
-          "description": "Database query for product data",
-          "must_observe": [
-            "logging",
-            "error_handling"
-          ],
-          "metrics_required": [
-            "product_query_duration"
-          ]
+          "layer": "service",
+          "file_pattern": "user-service"
+        },
+        {
+          "layer": "database",
+          "file_pattern": "repository"
         }
+      ]
+    },
+    
+    {
+      "id": "product_management",
+      "name": "Product Creation Flow",
+      "enabled": true,
+      "description": "Monitor product catalog operations",
+      "routes": [
+        "POST /api/products"
       ],
-      "response_tracking": {
-        "track_success_failure": true,
-        "track_latency": true,
-        "track_error_messages": false
-      }
+      "code_flow": [
+        {
+          "layer": "controller",
+          "file_pattern": "products"
+        },
+        {
+          "layer": "database",
+          "file_pattern": "repository"
+        }
+      ]
+    },
+    
+    {
+      "id": "user_retrieval",
+      "name": "User Data Retrieval",
+      "enabled": false,
+      "description": "Monitor user data access patterns (disabled - example of partial flow)",
+      "routes": [
+        "GET /api/users/:id",
+        "GET /api/users"
+      ],
+      "code_flow": [
+        {
+          "layer": "controller",
+          "file_pattern": "users"
+        },
+        {
+          "layer": "service",
+          "file_pattern": "user-service"
+        },
+        {
+          "layer": "database",
+          "file_pattern": "repository"
+        }
+      ]
     }
   ]
 }

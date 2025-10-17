@@ -1,404 +1,118 @@
 {
-    "metadata": {
-      "version": "1.0",
-      "language": "typescript",
-      "description": "Observability contract definitions. Define critical paths and required observability signals for your API endpoints.",
-      "supported_languages": ["typescript", "javascript", "python", "java", "go", "rust", "csharp"],
-      "instructions": "Edit this file to define your observability contracts. For each contract, specify which endpoints to monitor and what observability signals must be present at each step of the critical path."
-    },
-    "observability_signals": {
-      "logging": {
-        "description": "Required logging at this step",
-        "language_specific": {
-          "typescript": {
-            "patterns": [
-              "logger\\.\\w+\\(",
-              "log\\.\\w+\\(",
-              "@Logger()",
-              "console\\.log\\("
-            ],
-            "libraries": ["winston", "pino", "bunyan", "npmlog"],
-            "minimum_levels": ["error", "warn"]
-          },
-          "javascript": {
-            "patterns": [
-              "logger\\.\\w+\\(",
-              "log\\.\\w+\\(",
-              "console\\.log\\("
-            ],
-            "libraries": ["winston", "pino", "bunyan"],
-            "minimum_levels": ["error", "warn"]
-          },
-          "python": {
-            "patterns": [
-              "logging\\.\\w+\\(",
-              "logger\\.\\w+\\(",
-              "@log\\(",
-              "log\\.\\w+\\("
-            ],
-            "libraries": ["logging", "structlog", "loguru"],
-            "minimum_levels": ["error", "warning"]
-          },
-          "java": {
-            "patterns": [
-              "log\\.\\w+\\(",
-              "logger\\.\\w+\\(",
-              "@Log",
-              "LOGGER\\.\\w+\\("
-            ],
-            "libraries": ["slf4j", "logback", "log4j"],
-            "minimum_levels": ["error", "warn"]
-          },
-          "go": {
-            "patterns": [
-              "log\\.\\w+\\(",
-              "logger\\.\\w+\\(",
-              "zap\\.\\w+\\("
-            ],
-            "libraries": ["log", "logrus", "zap", "slog"],
-            "minimum_levels": ["error", "warn"]
-          },
-          "rust": {
-            "patterns": [
-              "log::\\w+!\\(",
-              "tracing::\\w+!\\(",
-              "info!\\(",
-              "error!\\("
-            ],
-            "libraries": ["log", "tracing", "slog"],
-            "minimum_levels": ["error", "warn"]
-          },
-          "csharp": {
-            "patterns": [
-              "_logger\\.\\w+\\(",
-              "logger\\.\\w+\\(",
-              "Log\\.\\w+\\("
-            ],
-            "libraries": ["Serilog", "NLog", "log4net", "Microsoft.Extensions.Logging"],
-            "minimum_levels": ["Error", "Warning"]
-          }
-        }
-      },
-      "tracing": {
-        "description": "Distributed tracing and span tracking",
-        "language_specific": {
-          "typescript": {
-            "patterns": [
-              "tracer\\.startSpan\\(",
-              "@Tracing\\(",
-              "span\\.setTag\\(",
-              "trace\\.getActiveSpan\\(",
-              "context\\.with\\("
-            ],
-            "libraries": ["opentelemetry-api", "opentelemetry-auto-instrumentations-node", "jaeger-client", "dd-trace"],
-            "required": false
-          },
-          "python": {
-            "patterns": [
-              "tracer\\.start_span\\(",
-              "@trace\\(",
-              "trace\\.get_current_span\\(",
-              "span\\.set_attribute\\("
-            ],
-            "libraries": ["opentelemetry-api", "opentelemetry-instrumentation", "jaeger-client", "ddtrace"],
-            "required": false
-          },
-          "java": {
-            "patterns": [
-              "tracer\\.buildSpan\\(",
-              "@Traced",
-              "SpanBuilder\\.startSpan\\(",
-              "GlobalTracer\\.get\\(\\)\\.buildSpan\\("
-            ],
-            "libraries": ["opentelemetry-api", "jaeger-client", "brave"],
-            "required": false
-          },
-          "go": {
-            "patterns": [
-              "span := trace\\.StartSpan\\(",
-              "tracer\\.Start\\(",
-              "@trace\\.WithSpan\\("
-            ],
-            "libraries": ["go.opentelemetry.io/trace", "go.opentelemetry.io/otel"],
-            "required": false
-          },
-          "rust": {
-            "patterns": [
-              "tracing::span\\(",
-              "span = tracing::info_span!\\(",
-              "tracing::trace_span!\\("
-            ],
-            "libraries": ["tracing", "tracing-subscriber", "opentelemetry"],
-            "required": false
-          },
-          "csharp": {
-            "patterns": [
-              "Activity.*Start\\(",
-              "using.*ActivitySource\\.StartActivity\\(",
-              "TelemetryClient\\.TrackTrace\\("
-            ],
-            "libraries": ["System.Diagnostics.DiagnosticSource", "OpenTelemetry"],
-            "required": false
-          }
-        }
-      },
-      "error_handling": {
-        "description": "Error catching and logging with context",
-        "language_specific": {
-          "typescript": {
-            "patterns": [
-              "try\\s*\\{[^}]*catch",
-              "catch\\s*\\([^)]*\\)\\s*\\{",
-              "\\.catch\\(",
-              "throw new Error\\("
-            ],
-            "must_include": ["message", "context"],
-            "required": true
-          },
-          "python": {
-            "patterns": [
-              "try:\\s*[^e]*except",
-              "except\\s+\\w+",
-              "except Exception as"
-            ],
-            "must_include": ["message", "context"],
-            "required": true
-          },
-          "java": {
-            "patterns": [
-              "try\\s*\\{[^}]*catch",
-              "catch\\s*\\([^)]*\\)\\s*\\{",
-              "throw new.*Exception\\("
-            ],
-            "must_include": ["message", "context"],
-            "required": true
-          },
-          "go": {
-            "patterns": [
-              "if err != nil",
-              "error\\{[^}]*\\}",
-              "panic\\("
-            ],
-            "must_include": ["message", "context"],
-            "required": true
-          },
-          "rust": {
-            "patterns": [
-              "match.*Err\\(",
-              "Result::\\w+\\(",
-              "?\\s*;\\s*$"
-            ],
-            "must_include": ["message", "context"],
-            "required": true
-          },
-          "csharp": {
-            "patterns": [
-              "try\\s*\\{[^}]*catch",
-              "catch\\s*\\([^)]*\\)\\s*\\{",
-              "throw new.*Exception\\("
-            ],
-            "must_include": ["message", "context"],
-            "required": true
-          }
-        }
-      },
-      "metrics": {
-        "description": "Performance and business metrics collection",
-        "language_specific": {
-          "typescript": {
-            "patterns": [
-              "metrics\\.\\w+\\(",
-              "histogram\\.observe\\(",
-              "counter\\.\\w+\\(",
-              "gauge\\.set\\(",
-              "prometheus\\.",
-              "statsd\\."
-            ],
-            "libraries": ["prom-client", "prometheus-client", "node-statsd", "opentelemetry-api-metrics"],
-            "required": false
-          },
-          "python": {
-            "patterns": [
-              "metrics\\.\\w+\\(",
-              "histogram\\(",
-              "counter\\.\\w+\\(",
-              "gauge\\.set\\(",
-              "statsd\\."
-            ],
-            "libraries": ["prometheus-client", "statsd", "opentelemetry-api"],
-            "required": false
-          },
-          "java": {
-            "patterns": [
-              "MeterRegistry\\.\\w+\\(",
-              "Timer\\.record\\(",
-              "Counter\\.increment\\(",
-              "Gauge\\.gauge\\("
-            ],
-            "libraries": ["micrometer-core", "prometheus-client", "opentelemetry-api"],
-            "required": false
-          },
-          "go": {
-            "patterns": [
-              "metric\\.\\w+\\(",
-              "prometheus\\.\\w+\\(",
-              "counter\\.Add\\(",
-              "histogram\\.Record\\("
-            ],
-            "libraries": ["prometheus/client_golang", "go.opentelemetry.io/otel/metric"],
-            "required": false
-          },
-          "rust": {
-            "patterns": [
-              "metrics::\\w+\\(",
-              "counter!\\(",
-              "histogram!\\(",
-              "gauge!\\("
-            ],
-            "libraries": ["metrics", "prometheus", "opentelemetry"],
-            "required": false
-          },
-          "csharp": {
-            "patterns": [
-              "Meter\\.CreateCounter\\(",
-              "Meter\\.CreateHistogram\\(",
-              "Meter\\.CreateGauge\\("
-            ],
-            "libraries": ["System.Diagnostics.Metrics", "OpenTelemetry.Exporter.Prometheus"],
-            "required": false
-          }
-        }
-      }
-    },
-    "contracts": [
-      {
-        "id": "example_payment",
-        "name": "EXAMPLE: Payment Processing Flow",
-        "enabled": false,
-        "description": "Example contract. Disable this and create your own.",
-        "entry_points": {
-          "routes": [
-            "POST /api/payments/charge",
-            "POST /api/payments/refund"
-          ],
-          "search_patterns": [
-            "PaymentController",
-            "processPayment",
-            "chargePayment"
-          ]
+  "_help_quickstart": [
+    "QUICK START GUIDE:",
+    "1. Set your programming language below (typescript, python, java, go, rust, csharp)",
+    "2. Delete the example contracts (or modify them for your use)",
+    "3. Create contracts for YOUR API endpoints that need observability monitoring",
+    "4. For each contract: specify the route(s) and the code layers the request flows through",
+    "5. Save as 'observe-config.json' and run the agent"
+  ],
+  
+  "metadata": {
+    "version": "1.0",
+    "language": "typescript",
+    "_help_language": "Choose your primary language: typescript, python, java, go, rust, or csharp"
+  },
+  
+  "_help_contracts": "Define which API endpoints to monitor and their code flow. Each contract checks that proper logging, error handling, and metrics exist at each step.",
+  
+  "contracts": [
+    {
+      "_help_example": "EXAMPLE 1: Order creation endpoint - tracks the flow from API to database",
+      "id": "order_creation",
+      "name": "Order Creation Monitoring",
+      "enabled": true,
+      "description": "Monitor order creation for proper observability",
+      "routes": [
+        "POST /api/orders",
+        "POST /api/v2/orders"
+      ],
+      "_help_routes": "List the HTTP routes this contract monitors (e.g., POST /api/orders)",
+      
+      "code_flow": [
+        {
+          "layer": "controller",
+          "file_pattern": "OrderController",
+          "_help_layer": "controller = API entry point, service = business logic, database = data layer"
         },
-        "critical_path": [
-          {
-            "step": 1,
-            "component": "PaymentController",
-            "method_pattern": "charge|process",
-            "description": "API entry point",
-            "must_observe": [
-              "logging",
-              "error_handling"
-            ],
-            "metrics_required": [
-              "request_latency",
-              "request_status"
-            ]
-          },
-          {
-            "step": 2,
-            "component": "PaymentService",
-            "method_pattern": "charge|processCharge",
-            "description": "Business logic layer",
-            "must_observe": [
-              "logging",
-              "tracing",
-              "error_handling"
-            ],
-            "metrics_required": [
-              "operation_duration"
-            ]
-          },
-          {
-            "step": 3,
-            "component": "Database|PaymentRepository",
-            "method_pattern": "insert|save|execute",
-            "description": "Data persistence layer",
-            "must_observe": [
-              "logging",
-              "error_handling"
-            ],
-            "metrics_required": [
-              "query_duration"
-            ]
-          }
-        ],
-        "response_tracking": {
-          "track_success_failure": true,
-          "track_latency": true,
-          "track_error_messages": true,
-          "expected_fields": [
-            "statusCode",
-            "duration",
-            "errorMessage"
-          ]
-        }
-      },
-      {
-        "id": "example_user_retrieval",
-        "name": "EXAMPLE: User Data Retrieval",
-        "enabled": false,
-        "description": "Example contract. Disable this and create your own.",
-        "entry_points": {
-          "routes": [
-            "GET /api/users/:id",
-            "GET /api/users"
-          ],
-          "search_patterns": [
-            "UserController",
-            "getUser",
-            "fetchUser"
-          ]
+        {
+          "layer": "service", 
+          "file_pattern": "OrderService"
         },
-        "critical_path": [
-          {
-            "step": 1,
-            "component": "UserController",
-            "method_pattern": "get|retrieve|list",
-            "description": "API entry point",
-            "must_observe": [
-              "logging",
-              "error_handling"
-            ],
-            "metrics_required": [
-              "request_latency"
-            ]
-          },
-          {
-            "step": 2,
-            "component": "UserService",
-            "method_pattern": "getById|findUser|list",
-            "description": "Business logic layer",
-            "must_observe": [
-              "logging"
-            ],
-            "metrics_required": []
-          },
-          {
-            "step": 3,
-            "component": "Database|UserRepository",
-            "method_pattern": "query|find|select",
-            "description": "Data persistence layer",
-            "must_observe": [
-              "logging"
-            ],
-            "metrics_required": [
-              "query_duration"
-            ]
-          }
-        ],
-        "response_tracking": {
-          "track_success_failure": true,
-          "track_latency": true,
-          "track_error_messages": false
+        {
+          "layer": "database",
+          "file_pattern": "OrderRepository"
         }
-      }
-    ]
-  }
+      ],
+      "_help_code_flow": "List the code layers this request flows through (controller → service → database)"
+    },
+    
+    {
+      "_help_example": "EXAMPLE 2: User authentication - simpler two-layer flow",
+      "id": "user_auth",
+      "name": "User Authentication Monitoring",
+      "enabled": true,
+      "description": "Monitor authentication endpoints",
+      "routes": [
+        "POST /api/auth/login",
+        "POST /api/auth/logout"
+      ],
+      "code_flow": [
+        {
+          "layer": "controller",
+          "file_pattern": "AuthController"
+        },
+        {
+          "layer": "service",
+          "file_pattern": "AuthService"
+        }
+      ]
+    },
+    
+    {
+      "_help_template": "TEMPLATE: Copy and modify this for your own endpoints",
+      "id": "your_endpoint_id",
+      "name": "Your Endpoint Name",
+      "enabled": false,
+      "_help_enabled": "Set to true to activate this contract",
+      "description": "What this endpoint does",
+      "routes": [
+        "GET /api/your-endpoint"
+      ],
+      "code_flow": [
+        {
+          "layer": "controller",
+          "file_pattern": "YourController",
+          "_help_file_pattern": "Class/file name containing this code (e.g., UserController, PaymentService)"
+        },
+        {
+          "layer": "service",
+          "file_pattern": "YourService"
+        },
+        {
+          "layer": "database",
+          "file_pattern": "YourRepository"
+        }
+      ]
+    }
+  ],
+  
+  "_help_requirements": [
+    "WHAT THE AGENT CHECKS:",
+    "✓ Logging - Each code layer has proper log statements",
+    "✓ Error Handling - Try-catch blocks with error logging",
+    "✓ Tracing - Distributed tracing spans (if configured)",
+    "✓ Metrics - Performance/business metrics collection",
+    "",
+    "The agent automatically detects these patterns based on your language.",
+    "You don't need to configure the detection patterns - just specify your endpoints!"
+  ],
+  
+  "_help_notes": [
+    "NOTES:",
+    "- The agent knows language-specific patterns (logger.info vs print vs console.log)",
+    "- You only need to specify WHAT to check, not HOW to check it",
+    "- Start with 1-2 critical endpoints, then expand coverage",
+    "- Use descriptive IDs and names for easy report reading"
+  ]
+}
